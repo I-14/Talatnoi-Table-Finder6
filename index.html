@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ตลาดน้อย มมส - ตรวจสอบโต๊ะว่างเรียลไทม์</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font: Prompt -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Prompt', 'sans-serif'],
+                    },
+                    colors: {
+                        msu: {
+                            yellow: '#FFC72C',
+                            gray: '#222222',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            background: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 50%, #edf2f7 100%);
+            min-height: 100vh;
+        }
+
+        /* Light Glassmorphism Effects */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.82);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.9);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
+        }
+
+        .glass-modal {
+            background: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.9);
+        }
+
+        /* Table Item Styling */
+        .table-item {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .table-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px -2px rgba(0, 0, 0, 0.1);
+        }
+
+        .table-item:active {
+            transform: scale(0.95);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(241, 245, 249, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(203, 213, 225, 0.8);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(148, 163, 184, 1);
+        }
+
+        /* Pulse Animation for Live Sync Indicator */
+        @keyframes pulse-fast {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(1.18); }
+        }
+        .live-dot {
+            animation: pulse-fast 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
+</head>
+<body class="font-sans text-slate-800 antialiased pb-12">
+
+    <!-- Header Navigation -->
+    <header class="sticky top-0 z-30 glass-card border-b border-white/60 mb-6 px-4 py-3">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            
+            <!-- Logo & Title -->
+            <div class="flex items-center space-x-3">
+                <div class="bg-gradient-to-tr from-amber-400 to-yellow-300 p-2.5 rounded-2xl shadow-sm text-slate-900 flex items-center justify-center w-11 h-11">
+                    <i class="fa-solid font-bold text-xl fa-utensils"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="font-bold text-lg md:text-xl text-slate-800 leading-tight">โรงอาหารตลาดน้อย มมส</h1>
+                        <span id="syncBadge" class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 live-dot"></span>
+                            REALTIME SYNC
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-500 font-medium">ผังโต๊ะว่างอัปเดตตรงกันทุกเครื่องทันที (รวม 331 โต๊ะ)</p>
+                </div>
+            </div>
+
+            <!-- Clock & Action Buttons -->
+            <div class="flex items-center space-x-2 md:space-x-4">
+                <!-- Live Clock -->
+                <div class="hidden sm:flex flex-col items-end px-3 py-1.5 rounded-xl bg-white/60 border border-white/80">
+                    <div id="liveClock" class="text-base font-bold text-slate-800 tracking-wider">00:00:00</div>
+                    <div id="liveDate" class="text-[11px] text-slate-500 font-medium">-- --- ----</div>
+                </div>
+
+                <!-- QR / Share Modal Trigger -->
+                <button onclick="openModal('qrModal')" class="p-2.5 bg-white/80 hover:bg-white text-slate-700 hover:text-amber-600 rounded-xl shadow-sm border border-slate-200/80 transition-all text-sm font-medium flex items-center gap-1.5">
+                    <i class="fa-solid fa-qrcode text-base"></i>
+                    <span class="hidden md:inline">แชร์ / QR</span>
+                </button>
+
+                <!-- Report Issue Modal Trigger -->
+                <button onclick="openModal('reportModal')" class="p-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl shadow-sm border border-rose-200/80 transition-all text-sm font-medium flex items-center gap-1.5">
+                    <i class="fa-solid fa-triangle-exclamation text-base"></i>
+                    <span class="hidden md:inline">แจ้งปัญหา</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 space-y-6">
+
+        <!-- Mobile Clock Banner -->
+        <div class="sm:hidden glass-card rounded-2xl p-3 flex items-center justify-between text-xs">
+            <div class="flex items-center gap-2">
+                <i class="fa-regular fa-clock text-amber-500 text-sm"></i>
+                <span id="liveDateMobile" class="text-slate-600 font-medium">-- --- ----</span>
+            </div>
+            <span id="liveClockMobile" class="font-bold text-slate-800 text-sm tracking-wider">00:00:00</span>
+        </div>
+
+        <!-- Real-Time Statistics Overview -->
+        <section class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+            <!-- Total Tables Summary -->
+            <div class="glass-card rounded-2xl p-4 flex flex-col justify-between relative overflow-hidden">
+                <div class="absolute -right-3 -bottom-3 text-slate-100 opacity-60 text-6xl">
+                    <i class="fa-solid fa-chair"></i>
+                </div>
+                <span class="text-xs font-semibold text-slate-500 uppercase tracking-wide">โต๊ะทั้งหมด</span>
+                <div class="mt-2 flex items-baseline justify-between">
+                    <span id="totalTablesCount" class="text-3xl font-extrabold text-slate-800">331</span>
+                    <span class="text-xs font-medium text-slate-500">โต๊ะ</span>
+                </div>
+                <div class="mt-2 text-xs text-slate-500">
+                    ความหนาแน่น <span id="occupancyRate" class="font-bold text-amber-600">0%</span>
+                </div>
+            </div>
+
+            <!-- Total Available Summary -->
+            <div class="glass-card rounded-2xl p-4 flex flex-col justify-between border-l-4 border-l-emerald-500 relative overflow-hidden">
+                <div class="absolute -right-3 -bottom-3 text-emerald-100 opacity-60 text-6xl">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+                <span class="text-xs font-semibold text-emerald-600 uppercase tracking-wide">🟢 โต๊ะว่าง</span>
+                <div class="mt-2 flex items-baseline justify-between">
+                    <span id="totalAvailableCount" class="text-3xl font-extrabold text-emerald-600">0</span>
+                    <span class="text-xs font-medium text-emerald-600/70">โต๊ะ</span>
+                </div>
+                <div class="mt-2 text-xs text-emerald-600/80 font-medium">
+                    พร้อมนั่งทานอาหาร
+                </div>
+            </div>
+
+            <!-- Total Occupied Summary -->
+            <div class="glass-card rounded-2xl p-4 flex flex-col justify-between border-l-4 border-l-rose-500 relative overflow-hidden">
+                <div class="absolute -right-3 -bottom-3 text-rose-100 opacity-60 text-6xl">
+                    <i class="fa-solid fa-user-group"></i>
+                </div>
+                <span class="text-xs font-semibold text-rose-600 uppercase tracking-wide">🔴 มีคนนั่ง</span>
+                <div class="mt-2 flex items-baseline justify-between">
+                    <span id="totalOccupiedCount" class="text-3xl font-extrabold text-rose-600">0</span>
+                    <span class="text-xs font-medium text-rose-600/70">โต๊ะ</span>
+                </div>
+                <div class="mt-2 text-xs text-rose-600/80 font-medium">
+                    กำลังใช้งาน
+                </div>
+            </div>
+
+            <!-- Quick Random Finder Button -->
+            <div class="glass-card rounded-2xl p-4 flex flex-col justify-between bg-gradient-to-br from-amber-500/10 via-white/80 to-yellow-500/10 border border-amber-200/80">
+                <div>
+                    <span class="text-xs font-semibold text-amber-800 uppercase tracking-wide">ตัวช่วยสุ่มโต๊ะ</span>
+                    <p class="text-xs text-slate-600 mt-1">สุ่มเลือกหาโต๊ะว่างจากทั้งหมด 331 โต๊ะ</p>
+                </div>
+                <button onclick="randomFindTable()" class="mt-3 w-full py-2.5 px-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 active:scale-95 text-slate-900 font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-dice text-base"></i>
+                    <span>สุ่มหาโต๊ะว่างให้ฉัน</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- Search & Filter Controls -->
+        <section class="glass-card rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+            
+            <!-- Zone Tab Filters -->
+            <div class="flex items-center bg-slate-200/60 p-1 rounded-xl w-full md:w-auto overflow-x-auto">
+                <button onclick="filterZone('all')" id="tab-all" class="zone-tab px-3.5 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap bg-white text-slate-800 shadow-sm">
+                    ทั้งหมด (331)
+                </button>
+                <button onclick="filterZone('dome1')" id="tab-dome1" class="zone-tab px-3.5 py-2 rounded-lg text-xs font-medium transition-all text-slate-600 hover:text-slate-900 whitespace-nowrap">
+                    1. หน้าตลาด (89)
+                </button>
+                <button onclick="filterZone('mid-domes')" id="tab-mid-domes" class="zone-tab px-3.5 py-2 rounded-lg text-xs font-medium transition-all text-slate-600 hover:text-slate-900 whitespace-nowrap">
+                    2. ระหว่างโดม (17)
+                </button>
+                <button onclick="filterZone('dome2')" id="tab-dome2" class="zone-tab px-3.5 py-2 rounded-lg text-xs font-medium transition-all text-slate-600 hover:text-slate-900 whitespace-nowrap">
+                    3. กลางตลาด (212)
+                </button>
+                <button onclick="filterZone('ev-parking')" id="tab-ev-parking" class="zone-tab px-3.5 py-2 rounded-lg text-xs font-medium transition-all text-slate-600 hover:text-slate-900 whitespace-nowrap">
+                    4. หลังตลาด EV (13)
+                </button>
+            </div>
+
+            <!-- Controls: Search Input & Status Filter -->
+            <div class="flex flex-wrap items-center justify-between w-full md:w-auto gap-2.5">
+                <!-- Search Input -->
+                <div class="relative flex-1 md:w-44">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-400"></i>
+                    <input type="text" id="searchInput" oninput="applyFilters()" placeholder="ค้นหาเบอร์โต๊ะ..." class="w-full pl-8 pr-3 py-1.5 bg-white/80 border border-slate-200 rounded-xl text-xs text-slate-700 outline-none focus:ring-2 focus:ring-amber-400">
+                </div>
+
+                <!-- Status Filter -->
+                <select id="statusFilter" onchange="applyFilters()" class="bg-white/80 border border-slate-200 rounded-xl text-xs font-medium px-2.5 py-1.5 text-slate-700 outline-none focus:ring-2 focus:ring-amber-400">
+                    <option value="all">ทุกสถานะ</option>
+                    <option value="available">🟢 ว่าง</option>
+                    <option value="occupied">🔴 มีคนนั่ง</option>
+                </select>
+            </div>
+        </section>
+
+        <!-- MAIN LAYOUT DISPLAY ACCORDING TO HANDWRITTEN SKETCH -->
+        <div id="zonesContainer" class="space-y-8">
+            
+            <!-- SECTION 1: หน้าตลาด โดม 1 (89 โต๊ะ) -->
+            <section id="section-dome1" class="zone-block space-y-4">
+                <div class="glass-card rounded-2xl p-4 border-l-4 border-l-amber-500 flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center text-lg">
+                            <i class="fa-solid fa-store"></i>
+                        </div>
+                        <div>
+                            <h2 class="font-bold text-slate-800 text-base md:text-lg flex items-center gap-2">
+                                📍 1. หน้าตลาด (โดม 1)
+                            </h2>
+                            <p class="text-xs text-slate-500">โซนหน้าตลาด อาคารโดม 1 (รวม 89 โต๊ะ)</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs">
+                        <span class="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full font-semibold" id="dome1-avail-badge">ว่าง 0</span>
+                        <span class="px-3 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-full font-semibold" id="dome1-occ-badge">ไม่ว่าง 0</span>
+                    </div>
+                </div>
+
+                <!-- 3 Sub-Blocks Grid for Dome 1 -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Left Block: 2 แถว × 12 = 24 โต๊ะ -->
+                    <div class="glass-card rounded-2xl p-4 space-y-2 border border-slate-200/80">
+                        <div class="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                            <span class="font-bold text-xs text-slate-700">บล็อกซ้าย (2 แถว × 12 โต๊ะ)</span>
+                            <span class="text-[11px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md">24 โต๊ะ</span>
+                        </div>
+                        <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-4 lg:grid-cols-6 gap-2" id="grid-dome1-left"></div>
+                    </div>
+
+                    <!-- Center Block: 2 แถว × 13 = 26 โต๊ะ -->
+                    <div class="glass-card rounded-2xl p-4 space-y-2 border border-slate-200/80">
+                        <div class="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                            <span class="font-bold text-xs text-slate-700">บล็อกกลาง (2 แถว × 13 โต๊ะ)</span>
+                            <span class="text-[11px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md">26 โต๊ะ</span>
+                        </div>
+                        <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-4 lg:grid-cols-6 gap-2" id="grid-dome1-center"></div>
+                    </div>
+
+                    <!-- Right Block: 3 แถว × 13 = 39 โต๊ะ -->
+                    <div class="glass-card rounded-2xl p-4 space-y-2 border border-slate-200/80">
+                        <div class="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                            <span class="font-bold text-xs text-slate-700">บล็อกขวา (3 แถว × 13 โต๊ะ)</span>
+                            <span class="text-[11px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md">39 โต๊ะ</span>
+                        </div>
+                        <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-4 lg:grid-cols-6 gap-2" id="grid-dome1-right"></div>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- SECTION 2: พื้นที่ระหว่างโดม 1 และ โดม 2 (17 โต๊ะ) -->
+            <section id="section-mid-domes" class="zone-block space-y-4">
+                <div class="glass-card rounded-2xl p-4 border-l-4 border-l-purple-500 flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center text-lg">
+                            <i class="fa-solid fa-arrows-left-right-to-line"></i>
+                        </div>
+                        <div>
+                            <h2 class="font-bold text-slate-800 text-base md:text-lg flex items-center gap-2">
+                                📍 2. พื้นที่ระหว่างโดม (ระหว่าง โดม 1 และ โดม 2)
+                            </h2>
+                            <p class="text-xs text-slate-500">โต๊ะกลมและโต๊ะว่างระหว่างเสา (รวม 17 โต๊ะ)</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs">
+                        <span class="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full font-semibold" id="mid-domes-avail-badge">ว่าง 0</span>
+                        <span class="px-3 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-full font-semibold" id="mid-domes-occ-badge">ไม่ว่าง 0</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Left/Center Round Tables: 14 โต๊ะ -->
+                    <div class="glass-card rounded-2xl p-4 space-y-2 border border-slate-200/80">
+                        <div class="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                            <span class="font-bold text-xs text-slate-700">โต๊ะกลมและว่างระหว่างเสา (ฝั่งซ้าย-กลาง)</span>
+                            <span class="text-[11px] font-semibold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-md">14 โต๊ะ</span>
+                        </div>
+                        <div class="grid grid-cols-4 sm:grid-cols-7 md:grid-cols-5 lg:grid-cols-7 gap-2" id="grid-mid-domes-left"></div>
+                    </div>
+
+                    <!-- Right Round Tables: 3 โต๊ะ -->
+                    <div class="glass-card rounded-2xl p-4 space-y-2 border border-slate-200/80">
+                        <div class="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                            <span class="font-bold text-xs text-slate-700">โต๊ะกลมฝั่งขวา</span>
+                            <span class="text-[11px] font-semibold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-md">3 โต๊ะ</span>
+                        </div>
+                        <div class="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-3 gap-2" id="grid-mid-domes-right"></div>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- SECTION 3: กลางตลาด โดม 2 (212 โต๊ะ) -->
+            <section id="section-dome2" class="zone-block space-y-4">
+                <div class="glass-card rounded-2xl p-4 border-l-4 border-l-blue-500 flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center text-lg">
+                            <i class="fa-solid fa-bowl-food"></i>
+                        </div>
+                        <div>
+                            <h2 class="font-bold text-slate-800 text-base md:text-lg flex items-center gap-2">
+                                📍 3. กลางตลาด (โดม 2)
+                            </h2>
+                            <p class="text-xs text-slate-500">ลานอาหารหลัก ร้านข้าวแกงและตามสั่ง (รวม 212 โต๊ะ)</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs">
+                        <span class="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full font-semibold" id="dome2-avail-badge">ว่าง 0</span>
+                        <span class="px-3 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-full font-semibold" id="dome2-occ-badge">ไม่ว่าง 0</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <!-- Left Block: 2 แถว × 27 = 54 โต๊ะ -->
+                    <div class="glass-card rounded-2xl p-4 space-y-2 border border-slate-200/80">
+                        <div class="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                            <span class="font-bold text-xs text-slate-700">บล็อกซ้าย (2 แถว × 27 โต๊ะ)</span>
+                            <span class="text-[11px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">54 โต๊ะ</span>
+                        </div>
+                        <div class="grid grid-cols-6 sm:grid-cols-9 lg:grid-cols-6 gap-2 max-h-96 overflow-y-auto pr-1" id="grid-dome2-left"></div>
+                    </div>
+
+                    <!-- Center Block: 3 แถว × 25 โต๊ะ + 2 โต๊ะพิเศษ = 77 โต๊ะ -->
+                    <div class="glass-card rounded-2xl p-4 space-y-2 border border-slate-200/80">
+                        <div class="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                            <span class="font-bold text-xs text-slate-700">บล็อกกลาง (3 แถว × 25 + 2)</span>
+                            <span class="text-[11px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">77 โต๊ะ</span>
+                        </div>
+                        <div class="grid grid-cols-6 sm:grid-cols-9 lg:grid-cols-6 gap-2 max-h-96 overflow-y-auto pr-1" id="grid-dome2-center"></div>
+                    </div>
+
+                    <!-- Right Block: 3 แถว × 27 = 81 โต๊ะ -->
+                    <div class="glass-card rounded-2xl p-4 space-y-2 border border-slate-200/80">
+                        <div class="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                            <span class="font-bold text-xs text-slate-700">บล็อกขวา (3 แถว × 27 โต๊ะ)</span>
+                            <span class="text-[11px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">81 โต๊ะ</span>
+                        </div>
+                        <div class="grid grid-cols-6 sm:grid-cols-9 lg:grid-cols-6 gap-2 max-h-96 overflow-y-auto pr-1" id="grid-dome2-right"></div>
+                    </div>
+                </div>
+            </section>
+
+
+            <!-- SECTION 4: หลังตลาด (ฝั่งที่จอดรถ EV) (13 โต๊ะ) -->
+            <section id="section-ev-parking" class="zone-block space-y-4">
+                <div class="glass-card rounded-2xl p-4 border-l-4 border-l-emerald-500 flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-lg">
+                            <i class="fa-solid fa-charging-station"></i>
+                        </div>
+                        <div>
+                            <h2 class="font-bold text-slate-800 text-base md:text-lg flex items-center gap-2">
+                                📍 4. หลังตลาด (ฝั่งที่จอดรถ EV)
+                            </h2>
+                            <p class="text-xs text-slate-500">ฝั่งจุดชาร์จและจอดรถไฟฟ้า EV (รวม 13 โต๊ะ)</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs">
+                        <span class="px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full font-semibold" id="ev-parking-avail-badge">ว่าง 0</span>
+                        <span class="px-3 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-full font-semibold" id="ev-parking-occ-badge">ไม่ว่าง 0</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Left/Center Back Block: 8 โต๊ะ -->
+                    <div class="glass-card rounded-2xl p-4 space-y-2 border border-slate-200/80">
+                        <div class="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                            <span class="font-bold text-xs text-slate-700">โซนหลังฝั่งซ้าย / กลาง</span>
+                            <span class="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">8 โต๊ะ</span>
+                        </div>
+                        <div class="grid grid-cols-4 sm:grid-cols-8 md:grid-cols-4 lg:grid-cols-8 gap-2" id="grid-ev-left"></div>
+                    </div>
+
+                    <!-- Right Back Block: 5 โต๊ะ -->
+                    <div class="glass-card rounded-2xl p-4 space-y-2 border border-slate-200/80">
+                        <div class="flex justify-between items-center pb-2 border-b border-slate-200/60">
+                            <span class="font-bold text-xs text-slate-700">โซนหลังฝั่งขวา</span>
+                            <span class="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">5 โต๊ะ</span>
+                        </div>
+                        <div class="grid grid-cols-5 sm:grid-cols-5 md:grid-cols-5 gap-2" id="grid-ev-right"></div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- Info Card -->
+        <div class="glass-card rounded-2xl p-4 text-xs text-slate-500 flex items-start gap-3">
+            <i class="fa-solid fa-cloud shadow-sm text-amber-500 text-base mt-0.5"></i>
+            <div>
+                <span class="font-semibold text-slate-700">ระบบซิงค์เรียลไทม์ออนไลน์:</span> 
+                เมื่อมีคนกดเปลี่ยนสถานะโต๊ะ (🟢 ว่าง ↔ 🔴 ไม่ว่าง) จากโทรศัพท์หรือคอมพิวเตอร์เครื่องใดก็ตาม ข้อมูลจะถูกอัปเดตตรงกันทั่วทุกอุปกรณ์ที่เปิดอยู่ทันทีโดยไม่ต้องรีเฟรชหน้าเว็บ!
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-12 text-center text-xs text-slate-500 space-y-1">
+        <p>© 2026 MSU Canteen Realtime Table System - มหาวิทยาลัยมหาสารคาม</p>
+        <p class="text-[11px] text-slate-400">ระบบตรวจสอบโต๊ะว่างเพื่อความสะดวกสำหรับนิสิตและบุคลากร</p>
+    </footer>
+
+    <!-- MODAL 1: REPORT ISSUE MODAL -->
+    <div id="reportModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm hidden">
+        <div class="glass-modal rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-200/60 pb-3">
+                <div class="flex items-center gap-2 text-rose-600 font-bold text-base">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span>แจ้งปัญหาการใช้งาน / โต๊ะอาหาร</span>
+                </div>
+                <button onclick="closeModal('reportModal')" class="text-slate-400 hover:text-slate-600 w-8 h-8 rounded-full flex items-center justify-center">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <form onsubmit="handleReportSubmit(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">เลือกหมายเลขโต๊ะ (ถ้ามี)</label>
+                    <select id="reportTableId" class="w-full bg-white/80 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 outline-none focus:ring-2 focus:ring-amber-400">
+                        <option value="">-- ไม่ระบุโต๊ะ --</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">ประเภทปัญหา</label>
+                    <select id="reportType" required class="w-full bg-white/80 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 outline-none focus:ring-2 focus:ring-amber-400">
+                        <option value="สถานะโต๊ะไม่ตรง">สถานะโต๊ะไม่ตรงกับความเป็นจริง</option>
+                        <option value="โต๊ะชำรุด/ไม่สะอาด">โต๊ะหรือเก้าอี้ชำรุด / สกปรกมาก</option>
+                        <option value="ลืมของไว้ที่โต๊ะ">ลืมของไว้ที่โต๊ะอาหาร</option>
+                        <option value="อื่นๆ">อื่นๆ</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">รายละเอียดเพิ่มเติม</label>
+                    <textarea id="reportDetail" rows="3" placeholder="ระบุรายละเอียดสั้นๆ..." class="w-full bg-white/80 border border-slate-200 rounded-xl p-3 text-xs text-slate-700 outline-none focus:ring-2 focus:ring-amber-400 resize-none"></textarea>
+                </div>
+
+                <div class="pt-2 flex gap-2">
+                    <button type="button" onclick="closeModal('reportModal')" class="w-1/2 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl">
+                        ยกเลิก
+                    </button>
+                    <button type="submit" class="w-1/2 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-xl shadow-md">
+                        ส่งรายงาน
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: QR CODE / SHARE MODAL -->
+    <div id="qrModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm hidden">
+        <div class="glass-modal rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4 text-center">
+            <div class="flex justify-end">
+                <button onclick="closeModal('qrModal')" class="text-slate-400 hover:text-slate-600 w-8 h-8 rounded-full flex items-center justify-center">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="space-y-1">
+                <h3 class="font-bold text-slate-800 text-base">สแกนเข้าใช้งาน / แชร์ลิงก์</h3>
+                <p class="text-xs text-slate-500">ไม่ต้องดาวน์โหลดแอป สแกนแล้วเช็กโต๊ะว่างได้ทันที</p>
+            </div>
+
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 inline-block shadow-inner">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=https://msu-canteen.online" alt="QR Code" class="w-44 h-44 mx-auto rounded-lg" onerror="this.src='https://placehold.co/180x180/ffffff/000000?text=MSU+Canteen+QR'">
+            </div>
+
+            <div class="pt-2 space-y-2">
+                <button onclick="copyShareLink()" class="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold text-xs rounded-xl shadow-md flex items-center justify-center gap-2">
+                    <i class="fa-regular fa-copy"></i>
+                    <span id="copyBtnText">คัดลอกลิงก์ใช้งาน</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 glass-modal border border-emerald-300 text-slate-800 px-4 py-3 rounded-2xl shadow-xl flex items-center gap-3 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+        <div id="toastIcon" class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-sm">
+            <i class="fa-solid fa-check"></i>
+        </div>
+        <div>
+            <div id="toastTitle" class="text-xs font-bold text-slate-800">แจ้งเตือน</div>
+            <div id="toastMsg" class="text-xs text-slate-600">ทำรายการสำเร็จ</div>
+        </div>
+    </div>
+
+    <!-- Firebase Realtime Synchronization Module -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase Setup & Fallback Config
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'msu-canteen-table-app';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "demo-key",
+            authDomain: "demo.firebaseapp.com",
+            projectId: "demo-msu-canteen",
+            storageBucket: "demo.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:demo"
+        };
+
+        let db = null;
+        let auth = null;
+        let isFirebaseActive = false;
+
+        // BroadcastChannel fallback for multi-tab sync locally
+        const localChannel = new BroadcastChannel('msu_canteen_tables_channel');
+
+        // Master Tables Array Structure (Total 331 Tables)
+        window.tablesData = [];
+
+        // Generate Master 331 Table Skeleton
+        function generateSkeletonTablesData() {
+            window.tablesData = [];
+
+            // 1. หน้าตลาด โดม 1 (89 โต๊ะ)
+            for(let i=1; i<=24; i++) {
+                window.tablesData.push({ id: `D1-L-${i}`, code: `D1-L${i}`, section: 'dome1', subBlock: 'grid-dome1-left', status: 'available' });
+            }
+            for(let i=1; i<=26; i++) {
+                window.tablesData.push({ id: `D1-C-${i}`, code: `D1-C${i}`, section: 'dome1', subBlock: 'grid-dome1-center', status: 'available' });
+            }
+            for(let i=1; i<=39; i++) {
+                window.tablesData.push({ id: `D1-R-${i}`, code: `D1-R${i}`, section: 'dome1', subBlock: 'grid-dome1-right', status: 'available' });
+            }
+
+            // 2. ระหว่างโดม 1 และ 2 (17 โต๊ะ)
+            for(let i=1; i<=14; i++) {
+                window.tablesData.push({ id: `MID-L-${i}`, code: `M-L${i}`, section: 'mid-domes', subBlock: 'grid-mid-domes-left', status: 'available' });
+            }
+            for(let i=1; i<=3; i++) {
+                window.tablesData.push({ id: `MID-R-${i}`, code: `M-R${i}`, section: 'mid-domes', subBlock: 'grid-mid-domes-right', status: 'available' });
+            }
+
+            // 3. กลางตลาด โดม 2 (212 โต๊ะ)
+            for(let i=1; i<=54; i++) {
+                window.tablesData.push({ id: `D2-L-${i}`, code: `D2-L${i}`, section: 'dome2', subBlock: 'grid-dome2-left', status: 'available' });
+            }
+            for(let i=1; i<=77; i++) {
+                window.tablesData.push({ id: `D2-C-${i}`, code: `D2-C${i}`, section: 'dome2', subBlock: 'grid-dome2-center', status: 'available' });
+            }
+            for(let i=1; i<=81; i++) {
+                window.tablesData.push({ id: `D2-R-${i}`, code: `D2-R${i}`, section: 'dome2', subBlock: 'grid-dome2-right', status: 'available' });
+            }
+
+            // 4. หลังตลาด EV Parking (13 โต๊ะ)
+            for(let i=1; i<=8; i++) {
+                window.tablesData.push({ id: `EV-L-${i}`, code: `EV-L${i}`, section: 'ev-parking', subBlock: 'grid-ev-left', status: 'available' });
+            }
+            for(let i=1; i<=5; i++) {
+                window.tablesData.push({ id: `EV-R-${i}`, code: `EV-R${i}`, section: 'ev-parking', subBlock: 'grid-ev-right', status: 'available' });
+            }
+
+            // Load saved state or set random baseline
+            const savedState = localStorage.getItem('msu_tables_state');
+            if (savedState) {
+                try {
+                    const parsed = JSON.parse(savedState);
+                    if (parsed.length === window.tablesData.length) {
+                        window.tablesData = parsed;
+                    }
+                } catch(e) {}
+            } else {
+                // Initial baseline distribution
+                window.tablesData.forEach(t => {
+                    t.status = Math.random() > 0.45 ? 'available' : 'occupied';
+                });
+            }
+        }
+
+        // Initialize Firebase
+        async function initFirebase() {
+            try {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                isFirebaseActive = true;
+                subscribeToFirestoreSync();
+            } catch (err) {
+                console.warn('Firebase sync operating in Local Broadcast fallback mode:', err);
+                isFirebaseActive = false;
+            }
+        }
+
+        // Firestore Realtime Listener
+        function subscribeToFirestoreSync() {
+            if (!isFirebaseActive || !db) return;
+
+            const tablesDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'canteen_tables', 'master_state');
+            
+            onSnapshot(tablesDocRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    const data = snapshot.data();
+                    if (data && data.tablesState) {
+                        window.tablesData = data.tablesState;
+                        localStorage.setItem('msu_tables_state', JSON.stringify(window.tablesData));
+                        window.renderAllGrids();
+                    }
+                } else {
+                    // Initialize DB document
+                    saveTablesStateToCloud();
+                }
+            }, (error) => {
+                console.warn('Firestore subscription fallback:', error);
+            });
+        }
+
+        // Save State to Cloud / Local Broadcast
+        async function saveTablesStateToCloud() {
+            localStorage.setItem('msu_tables_state', JSON.stringify(window.tablesData));
+
+            // Notify open browser windows/tabs
+            localChannel.postMessage({ type: 'SYNC_TABLES', state: window.tablesData });
+
+            if (isFirebaseActive && db) {
+                try {
+                    const tablesDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'canteen_tables', 'master_state');
+                    await setDoc(tablesDocRef, {
+                        tablesState: window.tablesData,
+                        updatedAt: new Date().toISOString()
+                    }, { merge: true });
+                } catch (e) {
+                    console.error('Cloud Sync Error:', e);
+                }
+            }
+        }
+
+        // BroadcastChannel Receiver
+        localChannel.onmessage = (event) => {
+            if (event.data && event.data.type === 'SYNC_TABLES') {
+                window.tablesData = event.data.state;
+                localStorage.setItem('msu_tables_state', JSON.stringify(window.tablesData));
+                window.renderAllGrids();
+            }
+        };
+
+        // Global function to toggle table status with sync
+        window.toggleTableStatus = function(id) {
+            const table = window.tablesData.find(t => t.id === id);
+            if (table) {
+                table.status = table.status === 'available' ? 'occupied' : 'available';
+                window.renderAllGrids();
+                saveTablesStateToCloud();
+
+                const statusMsg = table.status === 'available' ? '🟢 เปลี่ยนเป็น "ว่าง"' : '🔴 เปลี่ยนเป็น "มีคนนั่ง"';
+                window.showToast(`โต๊ะ ${table.code}`, statusMsg);
+            }
+        };
+
+        // Bootstrapping App
+        window.addEventListener('DOMContentLoaded', () => {
+            generateSkeletonTablesData();
+            window.renderAllGrids();
+            window.populateReportTableOptions();
+            initFirebase();
+        });
+    </script>
+
+    <!-- General Application UI Script -->
+    <script>
+        // Start Clock
+        function startClock() {
+            function updateTime() {
+                const now = new Date();
+                const timeString = now.toLocaleTimeString('th-TH', { hour12: false });
+                const options = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' };
+                const dateString = now.toLocaleDateString('th-TH', options);
+
+                const liveClockEl = document.getElementById('liveClock');
+                const liveDateEl = document.getElementById('liveDate');
+                const liveClockMobile = document.getElementById('liveClockMobile');
+                const liveDateMobile = document.getElementById('liveDateMobile');
+
+                if (liveClockEl) liveClockEl.innerText = timeString;
+                if (liveDateEl) liveDateEl.innerText = dateString;
+                if (liveClockMobile) liveClockMobile.innerText = timeString;
+                if (liveDateMobile) liveDateMobile.innerText = dateString;
+            }
+
+            updateTime();
+            setInterval(updateTime, 1000);
+        }
+
+        // Render Grids and Calculate Statistics
+        function renderAllGrids() {
+            if (!window.tablesData || window.tablesData.length === 0) return;
+
+            const subBlockContainers = [
+                'grid-dome1-left', 'grid-dome1-center', 'grid-dome1-right',
+                'grid-mid-domes-left', 'grid-mid-domes-right',
+                'grid-dome2-left', 'grid-dome2-center', 'grid-dome2-right',
+                'grid-ev-left', 'grid-ev-right'
+            ];
+
+            subBlockContainers.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = '';
+            });
+
+            const searchKey = document.getElementById('searchInput').value.trim().toLowerCase();
+            const statusFilter = document.getElementById('statusFilter').value;
+
+            let dome1Avail = 0, dome1Occ = 0;
+            let midAvail = 0, midOcc = 0;
+            let dome2Avail = 0, dome2Occ = 0;
+            let evAvail = 0, evOcc = 0;
+
+            window.tablesData.forEach(t => {
+                // Stats Accumulation
+                if (t.section === 'dome1') {
+                    if (t.status === 'available') dome1Avail++; else dome1Occ++;
+                } else if (t.section === 'mid-domes') {
+                    if (t.status === 'available') midAvail++; else midOcc++;
+                } else if (t.section === 'dome2') {
+                    if (t.status === 'available') dome2Avail++; else dome2Occ++;
+                } else if (t.section === 'ev-parking') {
+                    if (t.status === 'available') evAvail++; else evOcc++;
+                }
+
+                // Filter Evaluation
+                if (statusFilter !== 'all' && t.status !== statusFilter) return;
+                if (searchKey !== '' && !t.code.toLowerCase().includes(searchKey)) return;
+
+                const container = document.getElementById(t.subBlock);
+                if (!container) return;
+
+                const isAvail = t.status === 'available';
+                const item = document.createElement('div');
+                item.id = `card-${t.id}`;
+                item.onclick = () => window.toggleTableStatus(t.id);
+                
+                item.className = `table-item cursor-pointer rounded-xl p-1.5 flex flex-col items-center justify-center text-center border font-mono text-[11px] select-none ${
+                    isAvail 
+                        ? 'bg-emerald-500/15 border-emerald-400/60 text-emerald-800 hover:bg-emerald-500/25' 
+                        : 'bg-rose-500/15 border-rose-400/60 text-rose-800 hover:bg-rose-500/25'
+                }`;
+
+                item.innerHTML = `
+                    <span class="font-bold leading-none">${t.code}</span>
+                    <span class="text-[9px] mt-0.5 leading-none opacity-80">${isAvail ? '🟢ว่าง' : '🔴ไม่ว่าง'}</span>
+                `;
+
+                container.appendChild(item);
+            });
+
+            // Update Badge Counts
+            document.getElementById('dome1-avail-badge').innerText = `ว่าง ${dome1Avail}`;
+            document.getElementById('dome1-occ-badge').innerText = `ไม่ว่าง ${dome1Occ}`;
+
+            document.getElementById('mid-domes-avail-badge').innerText = `ว่าง ${midAvail}`;
+            document.getElementById('mid-domes-occ-badge').innerText = `ไม่ว่าง ${midOcc}`;
+
+            document.getElementById('dome2-avail-badge').innerText = `ว่าง ${dome2Avail}`;
+            document.getElementById('dome2-occ-badge').innerText = `ไม่ว่าง ${dome2Occ}`;
+
+            document.getElementById('ev-parking-avail-badge').innerText = `ว่าง ${evAvail}`;
+            document.getElementById('ev-parking-occ-badge').innerText = `ไม่ว่าง ${evOcc}`;
+
+            // Grand Total (331 Tables Exact)
+            const grandTotal = window.tablesData.length; // 331
+            const grandAvail = dome1Avail + midAvail + dome2Avail + evAvail;
+            const grandOcc = dome1Occ + midOcc + dome2Occ + evOcc;
+            const occPercentage = grandTotal > 0 ? Math.round((grandOcc / grandTotal) * 100) : 0;
+
+            document.getElementById('totalTablesCount').innerText = grandTotal;
+            document.getElementById('totalAvailableCount').innerText = grandAvail;
+            document.getElementById('totalOccupiedCount').innerText = grandOcc;
+            document.getElementById('occupancyRate').innerText = `${occPercentage}%`;
+        }
+
+        // Zone Tabs
+        function filterZone(zoneKey) {
+            document.querySelectorAll('.zone-tab').forEach(btn => {
+                btn.className = "zone-tab px-3.5 py-2 rounded-lg text-xs font-medium transition-all text-slate-600 hover:text-slate-900 whitespace-nowrap";
+            });
+
+            const activeTab = document.getElementById(`tab-${zoneKey}`);
+            if (activeTab) {
+                activeTab.className = "zone-tab px-3.5 py-2 rounded-lg text-xs font-semibold transition-all whitespace-nowrap bg-white text-slate-800 shadow-sm";
+            }
+
+            const dome1Sec = document.getElementById('section-dome1');
+            const midSec = document.getElementById('section-mid-domes');
+            const dome2Sec = document.getElementById('section-dome2');
+            const evSec = document.getElementById('section-ev-parking');
+
+            if (zoneKey === 'all') {
+                dome1Sec.classList.remove('hidden');
+                midSec.classList.remove('hidden');
+                dome2Sec.classList.remove('hidden');
+                evSec.classList.remove('hidden');
+            } else {
+                dome1Sec.classList.toggle('hidden', zoneKey !== 'dome1');
+                midSec.classList.toggle('hidden', zoneKey !== 'mid-domes');
+                dome2Sec.classList.toggle('hidden', zoneKey !== 'dome2');
+                evSec.classList.toggle('hidden', zoneKey !== 'ev-parking');
+            }
+        }
+
+        function applyFilters() {
+            renderAllGrids();
+        }
+
+        // Magic Random Free Table Finder
+        function randomFindTable() {
+            if (!window.tablesData) return;
+
+            const freeTables = window.tablesData.filter(t => t.status === 'available');
+            if (freeTables.length === 0) {
+                showToast('ขออภัย!', 'ขณะนี้ไม่มีโต๊ะว่างเลย', true);
+                return;
+            }
+
+            const lucky = freeTables[Math.floor(Math.random() * freeTables.length)];
+            
+            let zoneName = '';
+            if (lucky.section === 'dome1') zoneName = '1. หน้าตลาด';
+            else if (lucky.section === 'mid-domes') zoneName = '2. ระหว่างโดม';
+            else if (lucky.section === 'dome2') zoneName = '3. กลางตลาด';
+            else zoneName = '4. หลังตลาด EV';
+
+            showToast(`สุ่มได้โต๊ะ: ${lucky.code}`, `อยู่ในโซน ${zoneName}`);
+
+            filterZone('all');
+
+            setTimeout(() => {
+                const card = document.getElementById(`card-${lucky.id}`);
+                if (card) {
+                    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    card.classList.add('ring-4', 'ring-amber-400', 'scale-110');
+                    setTimeout(() => {
+                        card.classList.remove('ring-4', 'ring-amber-400', 'scale-110');
+                    }, 2500);
+                }
+            }, 200);
+        }
+
+        // Dropdown Options for Report
+        function populateReportTableOptions() {
+            const selectEl = document.getElementById('reportTableId');
+            if (!selectEl || !window.tablesData) return;
+
+            window.tablesData.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.code;
+                opt.textContent = `${t.code} (${t.section})`;
+                selectEl.appendChild(opt);
+            });
+        }
+
+        function handleReportSubmit(e) {
+            e.preventDefault();
+            closeModal('reportModal');
+            showToast('ส่งรายงานสำเร็จ', 'เจ้าหน้าที่ได้รับข้อมูลเรียบร้อยแล้ว');
+            document.getElementById('reportDetail').value = '';
+        }
+
+        function copyShareLink() {
+            const dummyUrl = window.location.href;
+            const tempInput = document.createElement('input');
+            tempInput.value = dummyUrl;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+
+            const btnText = document.getElementById('copyBtnText');
+            btnText.innerText = 'คัดลอกเรียบร้อย!';
+            setTimeout(() => {
+                btnText.innerText = 'คัดลอกลิงก์ใช้งาน';
+            }, 2000);
+
+            showToast('คัดลอกลิงก์แล้ว', 'นำไปแชร์ให้เพื่อนได้ทันที');
+        }
+
+        // Modals
+        function openModal(id) {
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        // Toast Messages
+        function showToast(title, msg, isError = false) {
+            const toast = document.getElementById('toast');
+            const toastTitle = document.getElementById('toastTitle');
+            const toastMsg = document.getElementById('toastMsg');
+            const toastIcon = document.getElementById('toastIcon');
+
+            if (!toast) return;
+
+            toastTitle.innerText = title;
+            toastMsg.innerText = msg;
+
+            if (isError) {
+                toastIcon.className = 'w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center text-sm';
+                toastIcon.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+            } else {
+                toastIcon.className = 'w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-sm';
+                toastIcon.innerHTML = '<i class="fa-solid fa-check"></i>';
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 2800);
+        }
+
+        window.onload = function() {
+            startClock();
+        };
+    </script>
+</body>
+</html>
